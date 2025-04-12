@@ -14,7 +14,7 @@ import java.util.Set;
 
 public final class FlexibleLambdaMetafactory {
     private FlexibleLambdaMetafactory() {}
-    
+
     public static CallSite metafactory(MethodHandles.Lookup caller,
                                        String interfaceMethodName,
                                        MethodType factoryType,
@@ -23,18 +23,18 @@ public final class FlexibleLambdaMetafactory {
                                        MethodType dynamicMethodType) throws IllegalAccessException, NoSuchMethodException, NoSuchFieldException {
         var samType = factoryType.returnType();
         var isInterface = samType.isInterface();
-        
+
         Descriptor target = Descriptor.of(Type.getObjectType(Type.getType(caller.lookupClass()).getInternalName() + "$$FlexibleLambdaMetafactory$" + interfaceMethodName));
         Descriptor toImplement = Descriptor.of(samType);
-        
+
         var ctorType = factoryType.changeReturnType(void.class);
 
         var capturedArity = ctorType.parameterCount();
-        
+
         var handleType = implementation.type();
         // We get in types of sam arg type, need to convert them to functional type, and then convert _that_ to the implementation type
         // Similarly, we get _out_ types of the implementation type, need to convert them to the functional type, and then to the sam type
-        
+
         // First conversion: impl -> functional
         handleType = handleType.changeReturnType(dynamicMethodType.returnType());
         for (var i = 0; i < dynamicMethodType.parameterCount(); i++) {
@@ -42,7 +42,7 @@ public final class FlexibleLambdaMetafactory {
             handleType = handleType.changeParameterType(i + capturedArity, argType);
         }
         implementation = implementation.asType(handleType);
-        
+
         // Second conversion: functional -> sam
         handleType = handleType.changeReturnType(samMethodType.returnType());
         for (var i = 0; i < samMethodType.parameterCount(); i++) {
@@ -51,9 +51,9 @@ public final class FlexibleLambdaMetafactory {
         }
         implementation = implementation.asType(handleType);
         var finalImplementation = implementation;
-        
+
         var doStaticInit = capturedArity == 0;
-        
+
         var hiddenLookup = ClassContext.hidden(
                 caller,
                 false,
@@ -69,11 +69,11 @@ public final class FlexibleLambdaMetafactory {
                     for (int i = 0; i < factoryType.parameterCount(); i++) {
                         context.field("arg$" + i, Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, Descriptor.of(factoryType.parameterType(i)), null, null, field -> {});
                     }
-                    
+
                     if (doStaticInit) {
                         context.field("$INSTANCE", Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, target, null, null, field -> {});
                     }
-                    
+
                     context.constructor(
                             Opcodes.ACC_PRIVATE,
                             Descriptor.of(ctorType),
@@ -90,7 +90,7 @@ public final class FlexibleLambdaMetafactory {
                                 code.returnValue(Descriptor.VOID);
                             })
                     );
-                    
+
                     context.method(
                             interfaceMethodName,
                             Opcodes.ACC_FINAL | Opcodes.ACC_PUBLIC,
@@ -99,21 +99,21 @@ public final class FlexibleLambdaMetafactory {
                             null,
                             method -> method.code(code -> {
                                 code.constant(tracker.dataConstant(Descriptor.METHOD_HANDLE, finalImplementation));
-                                
+
                                 for (int i = 0; i < ctorType.parameterCount(); i++) {
                                     code.loadThis();
                                     code.field(FieldOperation.GETFIELD, target, "arg$" + i, Descriptor.of(factoryType.parameterType(i)));
                                 }
-                                
+
                                 var lvIndex = 0;
                                 for (var i = 0; i < samMethodType.parameterCount(); i++) {
                                     var samArgType = samMethodType.parameterType(i);
                                     code.load(Descriptor.of(samArgType), lvIndex + 1);
                                     lvIndex += Descriptor.of(samArgType).size();
                                 }
-                                
+
                                 // We have all the arguments of the implementation present now
-                                
+
                                 code.method(
                                         MethodOperation.INVOKEVIRTUAL,
                                         Descriptor.METHOD_HANDLE,
@@ -121,12 +121,12 @@ public final class FlexibleLambdaMetafactory {
                                         Descriptor.of(finalImplementation.type()),
                                         false
                                 );
-                                
+
                                 // Now just return
                                 code.returnValue(Descriptor.of(finalImplementation.type().returnType()));
                             })
                     );
-                    
+
                     if (doStaticInit) {
                         context.method(
                                 "<clinit>",
@@ -136,13 +136,14 @@ public final class FlexibleLambdaMetafactory {
                                 null,
                                 method -> method.code(code -> {
                                     code.newInstance(target, Descriptor.of(MethodType.methodType(void.class)));
+                                    code.field(FieldOperation.PUTSTATIC, target, "$INSTANCE", target);
                                     code.returnValue(Descriptor.VOID);
                                 })
                         );
                     }
                 }
         );
-        
+
         MethodHandle handle;
         if (doStaticInit) {
             handle = hiddenLookup.findStaticGetter(hiddenLookup.lookupClass(), "$INSTANCE", hiddenLookup.lookupClass());
