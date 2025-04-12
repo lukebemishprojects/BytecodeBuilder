@@ -7,7 +7,7 @@ dependencyResolutionManagement {
                 mavenCentral()
             }
             filter {
-                includeGroup "org.ow2.asm"
+                includeGroupAndSubgroups "org.ow2"
                 includeGroup "org.jspecify"
             }
         }
