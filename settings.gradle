@@ -1,0 +1,20 @@
+import org.gradle.api.initialization.resolve.RepositoriesMode
+
+dependencyResolutionManagement {
+    repositories {
+        exclusiveContent {
+            forRepository {
+                mavenCentral()
+            }
+            filter {
+                includeGroup "org.ow2.asm"
+                includeGroup "org.jspecify"
+            }
+        }
+    }
+
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+}
+
+rootProject.name = 'bytecodebuilder'
+

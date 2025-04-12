@@ -1,0 +1,11 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'dev.lukebemish'
+version = '1.0'
+
+dependencies {
+    compileOnly "org.jspecify:jspecify:1.0.0"
+    api "org.ow2.asm:asm:9.8"
+}
