@@ -6,8 +6,6 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 
 import java.lang.invoke.MethodHandles;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -17,18 +15,18 @@ import java.util.function.Consumer;
 
 public final class ClassContext {
     private final List<Consumer<ClassVisitor>> classVisitors = new ArrayList<>();
-    
+
     private ClassContext() {}
-    
+
     public ClassContext asm(Consumer<ClassVisitor> consumer) {
         classVisitors.add(consumer);
         return this;
     }
-    
+
     public ClassContext constructor(int access, Descriptor descriptor, @Nullable Collection<Descriptor> exceptions, Consumer<MethodContext> remainder) {
         return method("<init>", access, descriptor, null, exceptions, remainder);
     }
-    
+
     public ClassContext method(String name, int access, Descriptor descriptor, @Nullable MethodSignature signature, @Nullable Collection<Descriptor> exceptions, Consumer<MethodContext> remainder) {
         var exceptionsNames = new String[exceptions == null ? 0 : exceptions.size()];
         if (exceptions != null) {
@@ -37,9 +35,9 @@ public final class ClassContext {
                 exceptionsNames[i++] = exception.internalName();
             }
         }
-        
+
         var methodContext = MethodContext.create(remainder);
-        
+
         classVisitors.add(cv -> {
             var mv = cv.visitMethod(access, name, descriptor.descriptor(), signature == null ? null : signature.signature(), exceptionsNames);
             methodContext.apply(mv);
@@ -47,7 +45,7 @@ public final class ClassContext {
         });
         return this;
     }
-    
+
     public ClassContext field(String name, int access, Descriptor descriptor, @Nullable Signature signature, @Nullable Constant constant, Consumer<FieldContext> remainder) {
         final Object constValue;
         if (constant != null) {
@@ -66,9 +64,9 @@ public final class ClassContext {
         } else {
             constValue = null;
         }
-        
+
         var fieldContext = FieldContext.create(remainder);
-        
+
         classVisitors.add(cv -> {
             var fv = cv.visitField(access, name, descriptor.descriptor(), signature == null ? null : signature.signature(), constValue);
             fieldContext.apply(fv);
@@ -76,7 +74,7 @@ public final class ClassContext {
         });
         return this;
     }
-    
+
     public void apply(ClassVisitor classVisitor) {
         for (Consumer<ClassVisitor> consumer : classVisitors) {
             consumer.accept(classVisitor);
@@ -90,13 +88,13 @@ public final class ClassContext {
         cv.visitEnd();
         return cv.toByteArray();
     }
-    
+
     public static ClassContext create(Consumer<ClassContext> consumer) {
         var context = new ClassContext();
         consumer.accept(context);
         return context;
     }
-    
+
     public static ClassContext create() {
         return new ClassContext();
     }
@@ -105,9 +103,9 @@ public final class ClassContext {
         var context = new ClassContext();
         var tracker = new ClassDataTracker();
         consumer.accept(context, tracker);
-        
+
         var bytes = context.build(flags, version, access, name, superName, interfaces, signature);
-        
+
         if (tracker.data.isEmpty()) {
             return lookup.defineHiddenClass(bytes, initialize, options.toArray(MethodHandles.Lookup.ClassOption[]::new));
         } else {

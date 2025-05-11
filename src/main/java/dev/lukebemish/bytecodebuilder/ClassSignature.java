@@ -1,19 +1,16 @@
 package dev.lukebemish.bytecodebuilder;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
-
 public final class ClassSignature {
     private final String signature;
 
     private ClassSignature(String signature) {
         this.signature = signature;
     }
-    
+
     public String signature() {
         return signature;
     }
-    
+
     public static final class Builder {
         private final StringBuilder signature = new StringBuilder();
 
@@ -25,7 +22,7 @@ public final class ClassSignature {
             }
             return this;
         }
-        
+
         public ClassSignature build(Signature superClass, Signature... interfaces) {
             var full = new StringBuilder();
             if (!signature.isEmpty()) {
@@ -38,7 +35,7 @@ public final class ClassSignature {
             return new ClassSignature(full.toString());
         }
     }
-    
+
     public Builder create() {
         return new Builder();
     }

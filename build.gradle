@@ -26,8 +26,8 @@ publishing {
             managedVersioning.sign(signing, it)
             managedVersioning.pom(it, 'BytecodeBuilder', 'LGPL-3.0-or-later')
             pom {
-                name = 'LineMapper'
-                description = 'A series of tools meant for generating bytecode involving complicated CONSTANTDYNAMIC or INVOKE_DYNAMIC constructions.'
+                name = 'BytecodeBuilder'
+                description = 'A series of tools meant for generating bytecode involving complicated CONSTANT_DYNAMIC or INVOKE_DYNAMIC constructions.'
             }
 
             from components.java
