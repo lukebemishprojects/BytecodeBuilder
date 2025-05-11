@@ -1,11 +1,36 @@
 plugins {
     id 'java-library'
+    id 'maven-publish'
+    id 'signing'
 }
 
 group = 'dev.lukebemish'
-version = '1.0'
 
 dependencies {
-    compileOnly "org.jspecify:jspecify:1.0.0"
+    compileOnly cLibs.bundles.compileonly
+    annotationProcessor cLibs.bundles.annotationprocessor
     api "org.ow2.asm:asm:9.8"
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            managedVersioning.sign(signing, it)
+            managedVersioning.pom(it, 'BytecodeBuilder', 'LGPL-3.0-or-later')
+            pom {
+                name = 'LineMapper'
+                description = 'A series of tools meant for generating bytecode involving complicated CONSTANTDYNAMIC or INVOKE_DYNAMIC constructions.'
+            }
+
+            from components.java
+        }
+    }
 }

@@ -1,20 +1,104 @@
-import org.gradle.api.initialization.resolve.RepositoriesMode
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            url "https://maven.lukebemish.dev/releases/"
+        }
+    }
+}
+
+plugins {
+    id 'dev.lukebemish.conventions' version '0.2.0-beta.2'
+    id 'dev.lukebemish.managedversioning' version '2.0.0-beta.5'
+}
 
 dependencyResolutionManagement {
     repositories {
-        exclusiveContent {
-            forRepository {
-                mavenCentral()
-            }
-            filter {
-                includeGroupAndSubgroups "org.ow2"
-                includeGroup "org.jspecify"
-            }
-        }
+        mavenCentral()
     }
 
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
 }
 
-rootProject.name = 'bytecodebuilder'
+def rootProjectName = 'bytecodebuilder'
+rootProject.name = rootProjectName
 
+managedVersioning {
+    versionFile.set file('version.properties')
+    versionPRs()
+    versionSnapshots()
+
+    gitHubActions {
+        snapshot {
+            prettyName.set 'Snapshot'
+            workflowDispatch.set(true)
+            onBranches.add 'main'
+            gradleJob {
+                buildCache()
+                cacheReadOnly.set false
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'Build', 'build'
+                gradlew 'Publish', 'publish'
+                mavenSnapshot('github')
+            }
+        }
+        release {
+            prettyName.set 'Release'
+            workflowDispatch.set(true)
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'build'
+                step {
+                    setupGitUser()
+                }
+                readOnly.set false
+                gradlew 'Tag Release', 'tagRelease'
+                gradlew 'Build', 'build'
+                step {
+                    run.set 'git push && git push --tags'
+                }
+                recordVersion 'Record Version', 'version'
+                dependencySubmission()
+            }
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'publish'
+                needs.add('build')
+                tag.set('${{needs.build.outputs.version}}')
+                gradlew 'Publish', 'publish'
+                sign()
+                mavenCentral()
+                mavenStaging('github')
+            }
+        }
+        build_pr {
+            prettyName.set 'Build PR'
+            pullRequest.set(true)
+            gradleJob {
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'Build', 'build'
+                gradlew 'Publish', 'publish'
+                pullRequestArtifact()
+            }
+        }
+        publish_pr {
+            prettyName.set 'Publish PR'
+            publishPullRequestAction(
+                'github',
+                "dev/lukebemish/${rootProjectName}",
+                'Build PR'
+            )
+        }
+    }
+
+    publishing {
+        mavenStaging()
+        mavenCentral()
+        mavenPullRequest()
+        mavenSnapshot()
+    }
+}
