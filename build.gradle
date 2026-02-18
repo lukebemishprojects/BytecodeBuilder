@@ -31,6 +31,10 @@ tasks.named('jar', Jar) {
     }
 }
 
+test {
+    failOnNoDiscoveredTests = false // TODO: set up proper testing
+}
+
 configurations {
     java24CompileClasspath.extendsFrom compileClasspath
     consumable("java24RuntimeElements") {
