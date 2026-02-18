@@ -7,9 +7,29 @@ pluginManagement {
     }
 }
 
+buildscript {
+    dependencyLocking {
+        lockMode = LockMode.STRICT
+        lockAllConfigurations()
+        lockFile.set file("locks/settings-buildscript-gradle.lockfile")
+    }
+}
+
 plugins {
-    id 'dev.lukebemish.conventions' version '0.2.0-beta.2'
-    id 'dev.lukebemish.managedversioning' version '2.0.0-beta.5'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '+'
+    id 'dev.lukebemish.managedversioning' version '+'
+    id 'dev.lukebemish.conventions' version '+'
+}
+
+gradle.lifecycle.beforeProject {p ->
+    p.buildscript{
+        dependencyLocking {
+            lockMode = LockMode.STRICT
+            lockAllConfigurations()
+            var cleanProjectName = (p.path + ":").replace(':', ' ').trim().replace(' ', '-')
+            lockFile.set file("locks/${cleanProjectName}buildscript-gradle.lockfile")
+        }
+    }
 }
 
 dependencyResolutionManagement {
