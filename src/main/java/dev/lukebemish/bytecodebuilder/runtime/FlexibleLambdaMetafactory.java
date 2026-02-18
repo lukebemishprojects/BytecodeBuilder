@@ -1,19 +1,18 @@
 package dev.lukebemish.bytecodebuilder.runtime;
 
 import dev.lukebemish.bytecodebuilder.ClassContext;
-import dev.lukebemish.bytecodebuilder.Descriptor;
-import dev.lukebemish.bytecodebuilder.FieldOperation;
-import dev.lukebemish.bytecodebuilder.MethodOperation;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import dev.lukebemish.bytecodebuilder.Constants;
 
+import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDescs;
+import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.LambdaConversionException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Set;
 
@@ -29,8 +28,8 @@ public final class FlexibleLambdaMetafactory {
         var samType = factoryType.returnType();
         var isInterface = samType.isInterface();
 
-        Descriptor target = Descriptor.of(Type.getObjectType(Type.getType(caller.lookupClass()).getInternalName() + "$$FlexibleLambdaMetafactory$" + interfaceMethodName));
-        Descriptor toImplement = Descriptor.of(samType);
+        ClassDesc target = ClassDesc.of(caller.lookupClass().getName() + "$$FlexibleLambdaMetafactory$" + interfaceMethodName);
+        ClassDesc toImplement = Constants.from(samType);
 
         var ctorType = factoryType.changeReturnType(void.class);
 
@@ -64,88 +63,86 @@ public final class FlexibleLambdaMetafactory {
                 caller,
                 false,
                 Set.of(MethodHandles.Lookup.ClassOption.NESTMATE),
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS,
-                Opcodes.V21,
-                Opcodes.ACC_FINAL,
+                65,
+                Modifier.FINAL,
                 target,
-                isInterface ? Descriptor.OBJECT : toImplement,
+                isInterface ? ConstantDescs.CD_Object : toImplement,
                 isInterface ? List.of(toImplement) : List.of(),
                 null,
                 (context, tracker) -> {
                     for (int i = 0; i < factoryType.parameterCount(); i++) {
-                        context.field("arg$" + i, Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, Descriptor.of(factoryType.parameterType(i)), null, null, field -> {
+                        context.field("arg$" + i, Modifier.PRIVATE | Modifier.FINAL, Constants.from(factoryType.parameterType(i)), null, null, field -> {
                         });
                     }
 
                     if (doStaticInit) {
-                        context.field("$INSTANCE", Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, toImplement, null, null, field -> {
+                        context.field("$INSTANCE", Modifier.STATIC | Modifier.PRIVATE | Modifier.FINAL, toImplement, null, null, field -> {
                         });
                     }
 
                     context.constructor(
-                        Opcodes.ACC_PRIVATE,
-                        Descriptor.of(ctorType),
+                        Modifier.PRIVATE,
+                        Constants.from(ctorType),
                         null,
                         method -> method.code(code -> {
                             for (int i = 0; i < ctorType.parameterCount(); i++) {
-                                var argType = Descriptor.of(ctorType.parameterType(i));
+                                var argType = Constants.from(ctorType.parameterType(i));
                                 code.loadThis();
                                 code.load(argType, i + 1);
-                                code.field(FieldOperation.PUTFIELD, target, "arg$" + i, argType);
+                                code.field(DirectMethodHandleDesc.Kind.SETTER, target, "arg$" + i, argType);
                             }
                             code.loadThis();
-                            code.method(MethodOperation.INVOKESPECIAL, isInterface ? Descriptor.OBJECT : toImplement, "<init>", Descriptor.of(MethodType.methodType(void.class)), false);
-                            code.returnValue(Descriptor.VOID);
+                            code.method(DirectMethodHandleDesc.Kind.SPECIAL, isInterface ? ConstantDescs.CD_Object : toImplement, "<init>", Constants.from(MethodType.methodType(void.class)));
+                            code.returnValue(ConstantDescs.CD_void);
                         })
                     );
 
                     context.method(
                         interfaceMethodName,
-                        Opcodes.ACC_FINAL | Opcodes.ACC_PUBLIC,
-                        Descriptor.of(samMethodType),
+                        Modifier.FINAL | Modifier.PUBLIC,
+                        Constants.from(samMethodType),
                         null,
                         null,
                         method -> method.code(code -> {
-                            code.constant(tracker.dataConstant(Descriptor.METHOD_HANDLE, finalImplementation));
+                            code.constant(tracker.dataConstant(ConstantDescs.CD_MethodHandle, finalImplementation));
 
                             for (int i = 0; i < ctorType.parameterCount(); i++) {
                                 code.loadThis();
-                                code.field(FieldOperation.GETFIELD, target, "arg$" + i, Descriptor.of(factoryType.parameterType(i)));
+                                code.field(DirectMethodHandleDesc.Kind.GETTER, target, "arg$" + i, Constants.from(factoryType.parameterType(i)));
                             }
 
                             var lvIndex = 0;
                             for (var i = 0; i < samMethodType.parameterCount(); i++) {
                                 var samArgType = samMethodType.parameterType(i);
-                                code.load(Descriptor.of(samArgType), lvIndex + 1);
-                                lvIndex += Descriptor.of(samArgType).size();
+                                code.load(Constants.from(samArgType), lvIndex + 1);
+                                lvIndex += Constants.sizeOf(Constants.from(samArgType));
                             }
 
                             // We have all the arguments of the implementation present now
 
                             code.method(
-                                MethodOperation.INVOKEVIRTUAL,
-                                Descriptor.METHOD_HANDLE,
+                                DirectMethodHandleDesc.Kind.VIRTUAL,
+                                ConstantDescs.CD_MethodHandle,
                                 "invokeExact",
-                                Descriptor.of(finalImplementation.type()),
-                                false
+                                Constants.from(finalImplementation.type())
                             );
 
                             // Now just return
-                            code.returnValue(Descriptor.of(finalImplementation.type().returnType()));
+                            code.returnValue(Constants.from(finalImplementation.type().returnType()));
                         })
                     );
 
                     if (doStaticInit) {
                         context.method(
                             "<clinit>",
-                            Opcodes.ACC_STATIC,
-                            Descriptor.of(MethodType.methodType(void.class)),
+                            Modifier.STATIC,
+                            Constants.from(MethodType.methodType(void.class)),
                             null,
                             null,
                             method -> method.code(code -> {
-                                code.newInstance(target, Descriptor.of(MethodType.methodType(void.class)));
-                                code.field(FieldOperation.PUTSTATIC, target, "$INSTANCE", toImplement);
-                                code.returnValue(Descriptor.VOID);
+                                code.newInstance(target, Constants.from(MethodType.methodType(void.class)));
+                                code.field(DirectMethodHandleDesc.Kind.STATIC_SETTER, target, "$INSTANCE", toImplement);
+                                code.returnValue(ConstantDescs.CD_void);
                             })
                         );
                     }

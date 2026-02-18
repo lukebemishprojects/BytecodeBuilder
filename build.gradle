@@ -6,10 +6,56 @@ plugins {
 
 group = 'dev.lukebemish'
 
+sourceSets {
+    java24 {}
+}
+
+tasks.named('compileJava24Java', JavaCompile) {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
+
+tasks.named('processResources', ProcessResources) {
+    from(sourceSets.java24.output) {
+        into 'META-INF/versions/24'
+    }
+    dependsOn sourceSets.java24.output
+}
+
+tasks.named('jar', Jar) {
+    manifest {
+        attributes([
+            'Multi-Release': 'true'
+        ])
+    }
+}
+
+configurations {
+    java24CompileClasspath.extendsFrom compileClasspath
+    consumable("java24RuntimeElements") {
+        extendsFrom java24Implementation
+        attributes {
+            addAllLater(runtimeElements.attributes)
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 24)
+        }
+    }
+}
+
+artifacts {
+    java24RuntimeElements tasks.jar
+}
+
+components.java.addVariantsFromConfiguration(configurations.java24RuntimeElements) {
+    mapToMavenScope('runtime')
+}
+
 dependencies {
     compileOnly cLibs.bundles.compileonly
     annotationProcessor cLibs.bundles.annotationprocessor
-    api "org.ow2.asm:asm:9.8"
+    implementation "org.ow2.asm:asm:9.8"
+
+    java24CompileOnly sourceSets.main.output.classesDirs
 }
 
 java {

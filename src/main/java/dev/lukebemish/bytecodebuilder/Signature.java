@@ -1,7 +1,6 @@
 package dev.lukebemish.bytecodebuilder;
 
-import org.objectweb.asm.Type;
-
+import java.lang.constant.ClassDesc;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +18,7 @@ public abstract sealed class Signature {
             return signature;
         }
     }
-    
+
     private static sealed abstract class ClassSignatureLike extends Signature {
         abstract protected String partial();
 
@@ -38,7 +37,7 @@ public abstract sealed class Signature {
             return new InnerClassSignature(name, this, Optional.empty());
         }
     }
-    
+
     private static final class ClassSignature extends ClassSignatureLike {
         private final String classInternalName;
         private final Optional<List<TypeArgument>> typeArguments;
@@ -53,7 +52,7 @@ public abstract sealed class Signature {
             return classInternalName + typeArguments.map(l -> "<"+l.stream().map(arg -> arg.typeArgument).collect(Collectors.joining())+">").orElse("");
         }
     }
-    
+
     private static final class InnerClassSignature extends ClassSignatureLike {
         private final String innerName;
         private final ClassSignatureLike parent;
@@ -83,7 +82,7 @@ public abstract sealed class Signature {
     public Signature array() {
         return new SimpleSignature("["+this.signature());
     }
-    
+
     abstract public String signature();
 
     public static Signature classType(String name) {
@@ -98,45 +97,36 @@ public abstract sealed class Signature {
         return new ClassSignature(name, Optional.of(typeArguments.stream().toList()));
     }
 
-    public static Signature classType(Type type) {
-        if (type.getSort() <= 8 || type.getSort() == Type.ARRAY) { // Type.DOUBLE
-            return new SimpleSignature(type.getDescriptor());
+    public static Signature classType(ClassDesc type) {
+        if (type.isPrimitive() || type.isArray()) {
+            return new SimpleSignature(type.descriptorString());
         }
-        
-        if (type.getSort() != Type.OBJECT) {
+
+        if (!type.isClassOrInterface()) {
             throw new IllegalArgumentException("Type "+type+" is not an object type");
         }
-        var name = type.getInternalName();
+        var name = type.descriptorString().substring(1, type.descriptorString().length()-1); // remove L and ;
         return new ClassSignature(name, Optional.empty());
     }
 
-    public static Signature classType(Type type, TypeArgument... typeArguments) {
+    public static Signature classType(ClassDesc type, TypeArgument... typeArguments) {
         return classType(type, List.of(typeArguments));
     }
 
-    public static Signature classType(Type type, Collection<TypeArgument> typeArguments) {
-        if (type.getSort() <= 8) { // Type.DOUBLE
-            return new SimpleSignature(type.getDescriptor());
+    public static Signature classType(ClassDesc type, Collection<TypeArgument> typeArguments) {
+        if (type.isPrimitive()) {
+            return new SimpleSignature(type.descriptorString());
         }
-        
-        if (type.getSort() != Type.OBJECT) {
+
+        if (!type.isClassOrInterface()) {
             throw new IllegalArgumentException("Type "+type+" is not an object type");
         }
-        var name = type.getInternalName();
+        var name = type.descriptorString().substring(1, type.descriptorString().length()-1); // remove L and ;
         return new ClassSignature(name, Optional.of(typeArguments.stream().toList()));
     }
 
     public static Signature classType(Class<?> clazz) {
-        if (clazz.isPrimitive()) {
-            return new SimpleSignature(clazz.descriptorString());
-        }
-        
-        var type = Type.getType(clazz);
-        if (type.getSort() != Type.OBJECT) {
-            throw new IllegalArgumentException("Type "+type+" is not an object type");
-        }
-        var name = type.getInternalName();
-        return new ClassSignature(name, Optional.empty());
+        return classType(Constants.from(clazz));
     }
 
     public static Signature classType(Class<?> clazz, TypeArgument... typeArguments) {
@@ -144,22 +134,13 @@ public abstract sealed class Signature {
     }
 
     public static Signature classType(Class<?> clazz, Collection<TypeArgument> typeArguments) {
-        if (clazz.isPrimitive()) {
-            return new SimpleSignature(clazz.descriptorString());
-        }
-        
-        var type = Type.getType(clazz);
-        if (type.getSort() != Type.OBJECT) {
-            throw new IllegalArgumentException("Type "+type+" is not an object type");
-        }
-        var name = type.getInternalName();
-        return new ClassSignature(name, Optional.of(typeArguments.stream().toList()));
+        return classType(Constants.from(clazz), typeArguments);
     }
 
     public static Signature typeVariable(String name) {
         return new SimpleSignature("T"+name+";");
     }
-    
+
     public static final class TypeArgument {
         private final String typeArgument;
 
@@ -167,15 +148,15 @@ public abstract sealed class Signature {
             this.typeArgument = typeArgument;
         }
     }
-    
+
     public static TypeArgument wildcard() {
         return new TypeArgument("*");
     }
-    
+
     public static TypeArgument extendsBound(Signature signature) {
         return new TypeArgument("+"+signature.signature());
     }
-    
+
     public static TypeArgument superBound(Signature signature) {
         return new TypeArgument("-"+signature.signature());
     }

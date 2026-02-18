@@ -1,5 +1,6 @@
 package dev.lukebemish.bytecodebuilder.test;
 
+import dev.lukebemish.bytecodebuilder.ClassContext;
 import dev.lukebemish.bytecodebuilder.runtime.Coercion;
 import dev.lukebemish.bytecodebuilder.runtime.FlexibleLambdaMetafactory;
 
@@ -10,6 +11,8 @@ import java.util.function.Consumer;
 public class TestFlexibleLambdaMetafactory {
     // TODO: proper junit testing
     public static void main(String[] args) throws Throwable {
+        System.out.println("Impl class: "+ ClassContext.create().getClass());
+
         var lookup = MethodHandles.lookup();
         var processString = lookup.findStatic(TestFlexibleLambdaMetafactory.class, "processString", MethodType.methodType(String.class, String.class));
         var printString = lookup.findStatic(TestFlexibleLambdaMetafactory.class, "printString", MethodType.methodType(void.class, String.class, String.class));
