@@ -7,7 +7,6 @@ import java.lang.constant.ConstantDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -41,7 +40,7 @@ public abstract sealed class ClassContext<T extends ClassContext<T, F, M>, F ext
         if (tracker.data.isEmpty()) {
             return lookup.defineHiddenClass(bytes, initialize, options.toArray(MethodHandles.Lookup.ClassOption[]::new));
         } else {
-            return lookup.defineHiddenClassWithClassData(bytes, List.copyOf(tracker.data), initialize, options.toArray(MethodHandles.Lookup.ClassOption[]::new));
+            return lookup.defineHiddenClassWithClassData(bytes, tracker.data.stream().map(ClassDataTracker.DataValue::resolve).toList(), initialize, options.toArray(MethodHandles.Lookup.ClassOption[]::new));
         }
     }
 }
